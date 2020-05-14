@@ -12,10 +12,11 @@ from Classifier import *
 learning_mode = False
 
 
+correct_tags = 0
 
 
 def init_argparse():
-    argument_parser = argparse.ArgumentParser(description="XML/TXT parser of enrollment data.")
+    argument_parser = argparse.ArgumentParser(description="")
     required_named = argument_parser.add_argument_group('required arguments')
     argument_parser.add_argument("-c", dest="soubor_se_seznamem_klasifikacnich_trid", default=None, action="store",
                                  help="")
@@ -70,31 +71,28 @@ def execute_learning_mode(structure_type, classes_file, classifier_type, train_d
     print("Starting structure creation!")
     start = time.time()
     for train_file in data_files:
-        structure.parse_file_content(load_and_split_file(train_data_folder+train_file))
+        tags, content = load_file_without_split(train_data_folder+train_file)
+        words = clean_and_split_content(content)
+        structure.parse_file_content((tags, words))
     structure.prepare_structure()
     print(f"Structure creation took up: {time.time() - start} secs")
 
     test_files = [f for f in os.listdir(test_data_folder) if f.endswith(".lab")]
+    file_count = len(test_files)
     start = time.time()
-
-    tag_count = 0
-    correct_tags = 0
+    global correct_tags
     for test_file in test_files:
 
-        tags, clean_words = load_and_split_file(test_data_folder + test_file)
-        result_tags = classifier.classify(clean_words)
-        print(f"{test_file} : {result_tags}")
-        for tag in tags:
-            tag_count += 1
-            for result_tag in result_tags:
-                if tag == result_tag[0]:
-                    correct_tags += 1
-                    break
+        tags, text = load_file_without_split(test_data_folder + test_file)
+        result_tag = classifier.classify(text)
+        print(f"{test_file} : {result_tag}")
+        if result_tag in tags:
+            correct_tags += 1
 
-    print(f"Classifier took up {time.time() - start} secs and had {(correct_tags/tag_count) * 100}% accuracy!")
-
+    print(f"Classifier took up {time.time() - start} secs and had {(correct_tags/file_count) * 100}% accuracy!")
     print(f"Saving model to file: {model_name}")
     save_model(model_name, structure, structure_type, classifier_type)
+
 
 
 def check_arguments():
@@ -146,9 +144,6 @@ def start_gui(classifier):
 
     def determinate_type():
         tags = classifier.classify(txt_field.get('1.0', END))
-
-
-        # label_content.set([tag for (tag, acc) in tags])
         label_content.set(str(tags).strip('[]'))
 
     btn = Button(window, text="Vyhodnotit", command=determinate_type)

@@ -1,6 +1,7 @@
 import operator
 import math
 
+from operator import itemgetter
 from Structure import *
 
 
@@ -9,8 +10,9 @@ class NaiveBayesClassifier:
     def __init__(self, model):
         self.model = model
 
-    def classify(self, words):
+    def classify(self, text):
         result = []
+        words = self.model.prepare_text(text)
         for (key, vector) in self.model.type_values:
             class_word_count = self.model.class_word_count[key]
             probability = 0
@@ -19,23 +21,29 @@ class NaiveBayesClassifier:
                     probability += self.model.get_word_probability(word, key, vector)
                 probability += self.model.get_document_freq(key)
             result.append((key, probability))
-        return scope_result(result, 0.98)
+        return max(result, key=itemgetter(1))[0]
 
 
-class DictionaryClassifier:
+class KNearestNeighbor:
 
-    def __init__(self, model):
+    def __init__(self, model, k):
         self.model = model
+        self.k = k
 
-    def classify(self, words):
+    def classify(self, text):
         result = []
-        for (key, vector) in self.model.type_values:
-            probability = 0
-            for word in words:
-                probability += self.model.get_word_count(word, vector)
-            result.append((key, probability))
+        words = self.model.prepare_text(text)
 
-        return scope_result(result, 0.8)
+        for word in words:
+
+
+            for (key, vector) in self.model.type_values:
+                similarity = 0
+                for value1, value2 in vector, input_vector:
+                    if value1 == value2:
+                        print()
+                result.append((key, similarity))
+        return max(result, key=itemgetter(1))[0]
 
 
 def scope_result(result, limit):

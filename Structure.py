@@ -12,9 +12,9 @@ class BagOfWords:
             self.class_file_occurrence = bag_data['class_file_occurrence']
             self.complete_class_occurrence = bag_data['complete_class_occurrence']
             self.class_word_count = bag_data['class_word_count']
-            self.dictionary_dimension = len(self.dictionary[0])
+            self.dictionary_dimension = len(self.dictionary["words"])
         else:
-            self.dictionary = ([], [])
+            self.dictionary = {"words": [], "occurrence": []}
             self.type_values = [(type_class, []) for type_class in class_types]
             self.word_count = 0
             self.class_file_occurrence = {type_class: 0 for type_class in class_types}
@@ -24,27 +24,27 @@ class BagOfWords:
 
     def parse_file_content(self, file_content):
         document_types = file_content[0]
-        self.complete_class_occurrence += 1
         for type in document_types:
             try:
                 self.class_file_occurrence[type] += 1
+                self.complete_class_occurrence += 1
             except KeyError:  # class is not defined
                 print(f"{type} is not included in defined classes!")
                 continue
 
-        words = file_content[1]
+        words = self.modify_words(file_content[1])
         for word in words:
             try:
-                word_index = self.dictionary[0].index(word)
-                self.dictionary[1][word_index] += 1
+                word_index = self.dictionary["words"].index(word)
+                self.dictionary["occurrence"][word_index] += 1
                 for (value_key, data) in self.type_values:
                     if value_key in document_types:
                         self.word_count += 1
                         data[word_index] = data[word_index] + 1
 
             except ValueError:
-                self.dictionary[0].append(word)
-                self.dictionary[1].append(1)
+                self.dictionary["words"].append(word)
+                self.dictionary["occurrence"].append(1)
                 for (value_key, data) in self.type_values:
                     self.word_count += 1
                     if value_key in document_types:
@@ -52,16 +52,19 @@ class BagOfWords:
                     else:
                         data.append(0)
 
+    def modify_words(self, words):
+        return words
+
     def prepare_structure(self):
         self.class_word_count = {key: sum(vector) for (key, vector) in self.type_values}
-        self.dictionary_dimension = len(self.dictionary[0])
+        self.dictionary_dimension = len(self.dictionary["words"])
 
     def get_document_freq(self, key):
         return math.log(self.class_file_occurrence[key] / self.complete_class_occurrence)
 
     def get_word_count(self, word, vector):
         try:
-            word_index = self.dictionary[0].index(word)
+            word_index = self.dictionary['words'].index(word)
             count = vector[word_index]
         except ValueError:
             count = 0
@@ -76,36 +79,33 @@ class BagOfWords:
                 'class_file_occurrence': self.class_file_occurrence, 'complete_class_occurrence':
                     self.complete_class_occurrence, 'class_word_count': self.class_word_count}
 
+    def prepare_text(self, text):
+        return clean_and_split_content(text)
+
 
 class TF_IDF(BagOfWords):
 
-    def __init__(self, class_types, bag_data=None):
-        super().__init__(class_types, bag_data)
-
-    def get_word_probability(self, word, class_key, vector):
-        usage_count = 0
-        try:
-            word_index = self.dictionary[0].index(word)
-            count = vector[word_index]
-            for (key, vector) in self.type_values:
-                if vector[word_index] > 0:
-                    usage_count += 1
-            return math.log((count + 1) / self.dictionary[1][word_index]) \
-                            + math.log((self.complete_class_occurrence / usage_count))
-        except ValueError:
-            return 0
+    def prepare_structure(self):
+        super().prepare_structure()
+        occurrence_array = [0] * self.dictionary_dimension
+        for i in range(0, self.dictionary_dimension):
+            for tag, vector in self.type_values:
+                if vector[i] != 0:
+                    occurrence_array[i] += 1
+        index = 0
+        for tag, vector in self.type_values:
+            vector[index] *= math.log(self.complete_class_occurrence / occurrence_array[index])
 
 
-def create_bag(sentence, dictionary):
-    sentence_words = clean_and_split_content(sentence)
-    # frequency word count
-    bag = np.zeros(len(dictionary))
-    for sw in sentence_words:
-        for i, word in enumerate(dictionary):
-            if word == sw:
-                bag[i] += 1
+class Bigram(BagOfWords):
 
-    return np.array(bag)
+    def prepare_text(self, text):
+        words = clean_and_split_content(text)
+        pairs = [(words[i], words[i + 1]) for i in range(0, len(words) - 1)]
+        return pairs
+
+    def modify_words(self, words):
+        return [(words[i], words[i + 1]) for i in range(0, len(words) - 1)]
 
 
 def test_bag():
