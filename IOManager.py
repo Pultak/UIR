@@ -1,7 +1,6 @@
 import json
 import re
 
-import threading
 
 REPLACE_BY_SPACE_RE = re.compile('[/(){}\[\]\|@,;]')
 BAD_SYMBOLS_RE = re.compile('[^0-9a-zá-ž #+_]')
@@ -40,6 +39,7 @@ STOP_WORDS = ["ačkoli", "ahoj", "ale", "anebo", "ano", "asi", "aspoň", "během
               "však", "všechen", "z", "zpět", "zprávy"]
 
 
+
 def load_file_without_split(file_name):
     file = open(file_name, "r")
     tags = file.readline().strip().split(" ")
@@ -50,10 +50,11 @@ def load_file_without_split(file_name):
 
 def clean_and_split_content(text):
     result = text.lower()
-    result = REPLACE_BY_SPACE_RE.sub(' ', result)  # replace REPLACE_BY_SPACE_RE symbols by space in text
-    result = BAD_SYMBOLS_RE.sub(' ', result)  # delete symbols which are in BAD_SYMBOLS_RE from text
-    words = [word for word in result.split() if word not in STOP_WORDS]
-    return words
+    #result = REPLACE_BY_SPACE_RE.sub(' ', result)  # replace REPLACE_BY_SPACE_RE symbols by space in text
+    #result = BAD_SYMBOLS_RE.sub(' ', result)  # delete symbols which are in BAD_SYMBOLS_RE from text
+    #words = [word for word in result.split() if word not in STOP_WORDS]
+    resultus = re.findall("[A-Z]{2,}(?![a-z])|[A-Z][a-z]+(?=[A-Z])|[\'\w\-]+", result)
+    return resultus #[porter.stem(word) for word in resultus]
 
 
 def save_model(model_name, model_structure, structure_name, classifier_name):
@@ -66,6 +67,12 @@ def save_model(model_name, model_structure, structure_name, classifier_name):
 def load_model(model_name):
     file = open(model_name, 'r')
     model_structure = json.load(file)
+    if model_structure['structure_name'] == "bigram":
+        model_structure['structure']['dictionary'] = {tuple(word_structure['key']): word_structure['value']
+                                                      for word_structure in model_structure['structure']['dictionary']}
+        for key, bag in model_structure['structure']['type_values']:
+            bag = {tuple(word_structure['key']): word_structure['value'] for word_structure in bag}
+
     file.close()
     return model_structure
 

@@ -1,8 +1,6 @@
 import argparse
 import os
 import time
-import threading
-
 
 from tkinter import *
 from IOManager import *
@@ -12,7 +10,6 @@ from Classifier import *
 learning_mode = False
 
 
-correct_tags = 0
 
 
 def init_argparse():
@@ -38,7 +35,8 @@ def get_structure(structure_type, class_types, data_bag=None):
         return BagOfWords(class_types, data_bag)
     elif structure_type.lower() == "tfidf":
         return TF_IDF(class_types, data_bag)
-    # todo more structures
+    elif structure_type.lower() == "bigram":
+        return BI_TF_IDF(class_types, data_bag)
     else:
         print("Neznámý typ parametrizačního algoritmu!")
         sys.exit(1)
@@ -47,8 +45,8 @@ def get_structure(structure_type, class_types, data_bag=None):
 def get_classifier(classifier_type, structure):
     if classifier_type.lower() == "nb":
         return NaiveBayesClassifier(structure)
-    elif classifier_type.lower() == "dict":
-        return DictionaryClassifier(structure)
+    elif classifier_type.lower() == "knn":
+        return KNearestNeighbor(structure)
     else:
         print("Neznámý typ klasifikačního algoritmu!")
         sys.exit(1)
@@ -58,7 +56,7 @@ def execute_testing_mode(model_name):
     model = load_model(model_name)
     structure = get_structure(model['structure_name'], None, model['structure'])
     classifier = get_classifier(model['classifier_name'], structure)
-    start_gui(classifier)
+    start_gui(classifier, model['classifier_name'], model['structure_name'])
 
 
 def execute_learning_mode(structure_type, classes_file, classifier_type, train_data_folder,
@@ -70,26 +68,34 @@ def execute_learning_mode(structure_type, classes_file, classifier_type, train_d
     data_files = [f for f in os.listdir(train_data_folder) if f.endswith(".lab")]
     print("Starting structure creation!")
     start = time.time()
+
+    if classifier_type == "knn":
+        parsing_function = structure.parse_file_content_as_vector
+    else:
+        parsing_function = structure.parse_file_content
+
     for train_file in data_files:
         tags, content = load_file_without_split(train_data_folder+train_file)
         words = clean_and_split_content(content)
-        structure.parse_file_content((tags, words))
+        parsing_function((tags, words))
     structure.prepare_structure()
     print(f"Structure creation took up: {time.time() - start} secs")
 
     test_files = [f for f in os.listdir(test_data_folder) if f.endswith(".lab")]
-    file_count = len(test_files)
+    tags_count = 0
+    correct_tags = 0
     start = time.time()
-    global correct_tags
     for test_file in test_files:
 
         tags, text = load_file_without_split(test_data_folder + test_file)
-        result_tag = classifier.classify(text)
-        print(f"{test_file} : {result_tag}")
-        if result_tag in tags:
-            correct_tags += 1
+        tags_count += len(tags)
+        result_tags = classifier.classify(text)
+        print(f"{test_file} : {result_tags}")
+        for tag, accuracy in result_tags:
+            if tag in tags:
+                correct_tags += 1
 
-    print(f"Classifier took up {time.time() - start} secs and had {(correct_tags/file_count) * 100}% accuracy!")
+    print(f"Classifier took up {time.time() - start} secs and had {(correct_tags/tags_count) * 100}% accuracy!")
     print(f"Saving model to file: {model_name}")
     save_model(model_name, structure, structure_type, classifier_type)
 
@@ -124,10 +130,10 @@ def check_arguments():
             execute_testing_mode(results.nazev_modelu)
 
 
-def start_gui(classifier):
+def start_gui(classifier, classifier_name, structure_name):
     window = Tk()
 
-    window.title("UIR_SP")
+    window.title(f"UIR_SP ({structure_name}, {classifier_name})")
     window.geometry('1000x500')
     window.minsize(300, 470)
 
