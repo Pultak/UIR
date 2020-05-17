@@ -30,13 +30,13 @@ def init_argparse():
     return argument_parser
 
 
-def get_structure(structure_type, class_types, data_bag=None):
+def get_structure(structure_type, classifier_type, class_types, data_bag=None):
     if structure_type.lower() == "bow":
-        return BagOfWords(class_types, data_bag)
+        return BagOfWords(class_types, classifier_type, data_bag)
     elif structure_type.lower() == "tfidf":
-        return TF_IDF(class_types, data_bag)
+        return TF_IDF(class_types, classifier_type, data_bag)
     elif structure_type.lower() == "bigram":
-        return BI_TF_IDF(class_types, data_bag)
+        return BI_TF_IDF(class_types, classifier_type, data_bag)
     else:
         print("Neznámý typ parametrizačního algoritmu!")
         sys.exit(1)
@@ -46,7 +46,7 @@ def get_classifier(classifier_type, structure):
     if classifier_type.lower() == "nb":
         return NaiveBayesClassifier(structure)
     elif classifier_type.lower() == "knn":
-        return KNearestNeighbor(structure)
+        return KNearestNeighbor(structure, 5)
     else:
         print("Neznámý typ klasifikačního algoritmu!")
         sys.exit(1)
@@ -62,7 +62,7 @@ def execute_testing_mode(model_name):
 def execute_learning_mode(structure_type, classes_file, classifier_type, train_data_folder,
                           test_data_folder, model_name):
     class_types = load_class_types(classes_file)
-    structure = get_structure(structure_type, class_types)
+    structure = get_structure(structure_type, classifier_type, class_types)
     classifier = get_classifier(classifier_type, structure)
 
     data_files = [f for f in os.listdir(train_data_folder) if f.endswith(".lab")]
@@ -137,7 +137,7 @@ def start_gui(classifier, classifier_name, structure_name):
     window.geometry('1000x500')
     window.minsize(300, 470)
 
-    def callback(e):
+    def callback(e):  # upon
         label_content.set("Unknown")
 
     txt_field = Text(window)

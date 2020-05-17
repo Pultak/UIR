@@ -29,26 +29,30 @@ class KNearestNeighbor:
     def __init__(self, model, k):
         self.model = model
         self.k = k
+        self.distance_result = []
 
     def classify(self, text):
-        result = {key: 0 for key in self.model.type_values.keys()}
-        words = self.model.prepare_text(text)
-        unique_words = {}
-        for word in words:
-            if word in unique_words:
-                unique_words[word] += 1
+        unique_words = self.model.create_bag(self.model.prepare_text(text))
+        input_vector = self.model.vectorize_bag(unique_words)
+        self.distance_result = []
+
+        for class_key, vectors in self.model.type_values.items():
+            for vector in vectors:
+                c = np.absolute(vector - input_vector)
+                distance_sum = np.sum(c)
+                self.distance_result.append((class_key, distance_sum))
+
+        self.distance_result.sort(key=lambda tup: tup[1])
+
+        point_count = self.k
+        result = {}
+        for key, distance in self.distance_result[:point_count]:
+            if key in result:
+                result[key] += 1
             else:
-                unique_words[word] = 1
+                result[key] = 1
 
-        for class_key, bag in self.model.type_values.items():
-            for word in self.model.dictionary.keys():
-                result[class_key] += (self.model.get_word_count(word, unique_words) -
-                                      self.model.get_word_count(word, bag))**2
-            result[class_key] = math.sqrt(result[class_key])
-
-        result = [(class_key, probability) for class_key, probability in result.items()]
-        result.sort(key=lambda tup: tup[1], reverse=True)
-        return scope_result(result, 0.65)  # min(result, key=itemgetter(1))[0]
+        return [(key, occurrence) for key, occurrence in result.items()]  # min(result, key=itemgetter(1))[0]
 
 
 def scope_result(result, limit, is_max=True):
