@@ -1,6 +1,3 @@
-from nltk.stem import PorterStemmer
-
-from operator import itemgetter
 from Structure import *
 
 
@@ -17,8 +14,8 @@ class NaiveBayesClassifier:
             probability = 0
             if class_word_count != 0:  # this class was included in train data
                 for word in words:
-                    probability += self.model.get_word_probability(word, key, vector)
-                probability += self.model.get_document_freq(key)
+                    probability += self.model.get_word_probability(word, key, vector)  # probability in log
+                probability += self.model.get_document_freq(key)  # probability in log
             result.append((key, probability))
         result.sort(key=lambda tup: tup[1], reverse=True)
         return scope_result(result, 0.95)  # max(result, key=itemgetter(1))[0]
@@ -36,6 +33,7 @@ class KNearestNeighbor:
         input_vector = self.model.vectorize_bag(unique_words)
         self.distance_result = []
 
+        # calc distances
         for class_key, vectors in self.model.type_values.items():
             for vector in vectors:
                 c = np.absolute(vector - input_vector)
@@ -44,6 +42,7 @@ class KNearestNeighbor:
 
         self.distance_result.sort(key=lambda tup: tup[1])
 
+        # get first k neighbors
         point_count = self.k
         result = {}
         for key, distance in self.distance_result[:point_count]:
@@ -51,8 +50,8 @@ class KNearestNeighbor:
                 result[key] += 1
             else:
                 result[key] = 1
-
-        return [(key, occurrence) for key, occurrence in result.items()]  # min(result, key=itemgetter(1))[0]
+        sorted_result = [(key, occurrence) for key, occurrence in result.items()]
+        return sorted_result  # min(result, key=itemgetter(1))[0]
 
 
 def scope_result(result, limit, is_max=True):

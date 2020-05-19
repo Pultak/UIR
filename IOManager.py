@@ -1,7 +1,6 @@
 import json
 import re
 
-
 REPLACE_BY_SPACE_RE = re.compile('[/(){}\[\]\|@,;]')
 BAD_SYMBOLS_RE = re.compile('[^0-9a-zá-ž #+_]')
 STOP_WORDS = ["ačkoli", "ahoj", "ale", "anebo", "ano", "asi", "aspoň", "během", "bez", "beze", "blízko", "bohužel",
@@ -39,8 +38,12 @@ STOP_WORDS = ["ačkoli", "ahoj", "ale", "anebo", "ano", "asi", "aspoň", "během
               "však", "všechen", "z", "zpět", "zprávy"]
 
 
-
 def load_file_without_split(file_name):
+    """
+    Load file content
+    :param file_name: name of file you want to load
+    :return: all tags from the file, text file content
+    """
     file = open(file_name, "r")
     tags = file.readline().strip().split(" ")
     file_content = file.read()
@@ -49,30 +52,58 @@ def load_file_without_split(file_name):
 
 
 def clean_and_split_content(text):
+    """
+    Clean and splits text content
+    :param text: text content
+    :return: list of words
+    """
     result = text.lower()
-    #result = REPLACE_BY_SPACE_RE.sub(' ', result)  # replace REPLACE_BY_SPACE_RE symbols by space in text
-    #result = BAD_SYMBOLS_RE.sub(' ', result)  # delete symbols which are in BAD_SYMBOLS_RE from text
-    #words = [word for word in result.split() if word not in STOP_WORDS]
-    resultus = re.findall("[A-Z]{2,}(?![a-z])|[A-Z][a-z]+(?=[A-Z])|[\'\w\-]+", result)
-    return resultus #[porter.stem(word) for word in resultus]
+    # result = REPLACE_BY_SPACE_RE.sub(' ', result)  # replace REPLACE_BY_SPACE_RE symbols by space in text
+    # result = BAD_SYMBOLS_RE.sub(' ', result)  # delete symbols which are in BAD_SYMBOLS_RE from text
+    # words = [word for word in result.split() if word not in STOP_WORDS]
+    result = re.findall("[A-Z]{2,}(?![a-z])|[A-Z][a-z]+(?=[A-Z])|[\'\w\-]+", result)
+    return result #[porter.stem(word) for word in resultus]
 
 
-def save_model(model_name, model_structure, structure_name, classifier_name):
+def save_model(model_name, model_structure, structure_name, classifier_name, class_types):
+    """
+    Save trained model into file
+    :param model_name: output file name
+    :param model_structure: structure of trained model
+    :param structure_name: type of structure you are saving
+    :param classifier_name: type of classifier you are saving
+    :param class_types: all class types that are defined
+    """
     file = open(model_name, "w")
     structure = model_structure.get_as_json_object()
-    json.dump({'structure': structure, 'structure_name': structure_name, 'classifier_name': classifier_name}, file)
+    json.dump({'structure': structure, 'structure_name': structure_name, 'classifier_name': classifier_name,
+               'class_types': class_types}, file)
     file.close()
 
 
 def load_model(model_name):
+    """
+    Load trained model from file
+    :param model_name: input file
+    :return: structure of loaded model
+    """
+    import pathlib
+    print(pathlib.Path(__file__).parent.absolute())
     file = open(model_name, 'r')
     model_structure = json.load(file)
     if model_structure['structure_name'] == "bigram":
-        model_structure['structure']['dictionary'] = {tuple(word_structure['key']): word_structure['value']
-                                                      for word_structure in model_structure['structure']['dictionary']}
-        for key, bag in model_structure['structure']['type_values']:
-            bag = {tuple(word_structure['key']): word_structure['value'] for word_structure in bag}
-
+        # does the structure contain dual keys? (json does not support them)
+        if model_structure['classifier_name'] != 'knn':
+            model_structure['structure']['dictionary'] = \
+                {tuple(word_structure['key']): word_structure['value']  # we have dual keys in dictionary
+                 for word_structure in model_structure['structure']['dictionary']}
+            for key, bag in model_structure['structure']['type_values'].items():
+                model_structure['structure']['type_values'][key] = \
+                    {tuple(word_structure['key']): word_structure['value'] for word_structure in bag}
+                # we also have dual keys in bags
+        else:
+            model_structure['structure']['dictionary']['words'] = \
+                [tuple(bi_word) for bi_word in model_structure['structure']['dictionary']['words']]
     file.close()
     return model_structure
 
